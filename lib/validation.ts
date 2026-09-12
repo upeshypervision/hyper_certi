@@ -16,10 +16,11 @@ export function isValidEmail(email: string): boolean {
 }
 
 /**
- * Validates that a SAP ID is numeric and within expected length.
+ * Validates that a SAP ID is non-empty.
+ * Accepts any length and any alphanumeric characters.
  */
 export function isValidSapId(sapid: string): boolean {
-  return /^\d{6,12}$/.test(sapid);
+  return sapid.trim().length > 0;
 }
 
 /**

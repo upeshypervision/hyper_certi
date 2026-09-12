@@ -296,7 +296,6 @@ export default function HomePage() {
                         <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300" htmlFor="sapId">
                           SAP ID / Student ID <span className="text-amber-400">*</span>
                         </label>
-                        <span className="text-[11px] font-mono text-slate-400">9-digit University ID</span>
                       </div>
                       <div className="relative rounded-xl shadow-sm">
                         <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -308,8 +307,6 @@ export default function HomePage() {
                           id="sapId"
                           name="sapId"
                           type="text"
-                          maxLength={9}
-                          pattern="[0-9]{9}"
                           style={{ paddingLeft: '2.5rem', paddingRight: '1rem' }}
                           className="block w-full py-3 bg-slate-900/80 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:border-amber-400 transition text-sm font-mono hover:border-slate-600"
                           placeholder="e.g. 500123456"

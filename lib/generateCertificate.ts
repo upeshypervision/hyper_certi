@@ -86,24 +86,30 @@ export async function generateAndDownloadCertificate({
   const greatVibesFont = await pdfDoc.embedFont(fontBytes);
 
   // 5. Calculate name placement
-  // The blank area for the name sits between:
-  // - Top: "THIS IS TO CERTIFY THAT" bottom at y ≈ 325 pt
-  // - Bottom: "has successfully participated" top at y ≈ 236 pt
-  // Vertical center is ~271 pt (45.5% from bottom of page).
-  let fontSize = 48;
-  const maxAllowedWidth = pageWidth * 0.75; // ~630 pt
+  // New certificate layout (certi_latex.pdf / Advanced LaTeX Workshop):
+  // - "This is to certify that" baseline  ≈ 406.5 pt  (ratio 0.682)
+  // - Blank gap top (text bottom)          ≈ 393 pt   (ratio 0.660)
+  // - Horizontal name-underline            ≈ 328.4 pt (ratio 0.552)
+  // - "has successfully participated..."   ≈ 262.9 pt (ratio 0.441)
+  //
+  // Name baseline target: center of blank gap above the underline
+  //   center = (393 + 328.4) / 2 ≈ 360.7 pt  → ratio ≈ 0.606
+  //   At 40 pt Great Vibes, ascender ~32 pt above baseline (fits below 393)
+  //   and descender ~12 pt below baseline stays above underline (328.4).
+  let fontSize = 40;
+  const maxAllowedWidth = pageWidth * 0.48; // ~404 pt — stays within the underline
   let nameWidth = greatVibesFont.widthOfTextAtSize(name, fontSize);
 
   // Auto-shrink font size if the name is unusually long
-  while (nameWidth > maxAllowedWidth && fontSize > 26) {
+  while (nameWidth > maxAllowedWidth && fontSize > 20) {
     fontSize -= 2;
     nameWidth = greatVibesFont.widthOfTextAtSize(name, fontSize);
   }
 
   const x = (pageWidth - nameWidth) / 2;
-  const y = pageHeight * 0.455; // Perfectly centered baseline
+  const y = pageHeight * 0.606; // Centered in the blank gap above the name underline
 
-  // 6. Draw name in deep navy blue (matching cert color scheme)
+  // 6. Draw name in deep navy blue (matching cert color scheme — #11254D)
   page.drawText(name, {
     x,
     y,
@@ -120,7 +126,7 @@ export async function generateAndDownloadCertificate({
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `LaTeX-Workshop-Certificate-${name.replace(/\s+/g, '-')}.pdf`;
+  link.download = `Advanced-LaTeX-Workshop-Certificate-${name.replace(/\s+/g, '-')}.pdf`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
