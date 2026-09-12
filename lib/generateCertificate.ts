@@ -107,7 +107,7 @@ export async function generateAndDownloadCertificate({
   }
 
   const x = (pageWidth - nameWidth) / 2;
-  const y = pageHeight * 0.606; // Centered in the blank gap above the name underline
+  const y = pageHeight * 0.582; // Dropped lower toward the name underline (~346 pt)
 
   // 6. Draw name in deep navy blue (matching cert color scheme — #11254D)
   page.drawText(name, {
