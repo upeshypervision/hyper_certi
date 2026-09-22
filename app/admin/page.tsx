@@ -416,7 +416,7 @@ export default function AdminPage() {
               Certificate <span className="text-[#F5B81C]">Console</span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 mt-1.5">
-              Dr. S. J. Chopra Centre for Learning · UPES
+              Hypervision · UPES
             </p>
           </header>
 
@@ -534,13 +534,13 @@ export default function AdminPage() {
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                 Admin Console
               </span>
-              <span className="text-xs text-slate-400">Dr. S. J. Chopra Centre · UPES</span>
+              <span className="text-xs text-slate-400">Hypervision · UPES</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-['Cinzel',serif] font-bold text-white tracking-tight">
               Certificate <span className="text-[#F5B81C]">Admin Control</span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Workshop on Advanced LaTeX for Research Writing and Publication
+              Hypervision Launchpad Workshop
             </p>
           </div>
 
@@ -1148,7 +1148,7 @@ export default function AdminPage() {
 
         {/* Admin Footer */}
         <footer className="text-center text-xs text-slate-400 space-y-1 py-4 border-t border-slate-800/80">
-          <p>Dr. S. J. Chopra Centre for Learning · UPES · Workshop on Advanced LaTeX</p>
+          <p>Hypervision · UPES · Launchpad Workshop</p>
           <p>
             <a href="/" className="text-[#F5B81C] hover:underline">
               ← Return to Public Student Verification Portal

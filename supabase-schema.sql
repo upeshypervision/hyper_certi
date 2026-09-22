@@ -86,3 +86,20 @@ CREATE POLICY "Service role delete"
   FOR DELETE
   TO service_role
   USING (bucket_id = 'certificates');
+
+-- 7. API role privileges
+-- Supabase normally grants these by default. They are repeated here (idempotent)
+-- so the schema also works on a project where the defaults were revoked or the
+-- tables were created by another role. Missing grants surface as:
+--   42501 permission denied for table participants   (see supabase-fix-grants.sql)
+GRANT USAGE ON SCHEMA public TO service_role;
+
+GRANT ALL PRIVILEGES
+  ON TABLE public.participants, public.download_logs, public.settings
+  TO service_role;
+
+-- BIGSERIAL ids need sequence access for INSERT
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO service_role;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES    TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;

@@ -2,10 +2,60 @@
 
 import { PDFDocument, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
+import { layoutName, type NameMetrics } from './certificateLayout';
 
 interface GenerateCertificateOptions {
   name: string;
   templateUrl: string;
+}
+
+export interface BuildCertificateOptions {
+  name: string;
+  /** PNG or JPEG bytes of the certificate template. */
+  templateBytes: ArrayBuffer | Uint8Array;
+  /** TrueType bytes of the font used for the name. */
+  fontBytes: ArrayBuffer | Uint8Array;
+}
+
+const NAME_COLOR = rgb(0.067, 0.145, 0.427); // #11254D — deep navy, matches the template's blues
+
+/**
+ * OpenType features for the name. Every multi-letter substitution is off:
+ * Great Vibes' ligature (`ff`, `fi`) and contextual-alternate (`en`, `or`,
+ * `th`, ...) glyphs get an advance in the PDF that doesn't match their ink,
+ * so "Jaffrey" rendered as "Jaff rey" and "Venkat" as "Ven kat". The plain
+ * single glyphs join up fine in this face.
+ */
+const NAME_FEATURES = { liga: false, dlig: false, clig: false, calt: false } as const;
+
+/** Reference page width in pt (A4 landscape). Height follows the template's aspect ratio. */
+const PAGE_WIDTH = 841.89;
+
+const toBytes = (b: ArrayBuffer | Uint8Array): Uint8Array => (b instanceof Uint8Array ? b : new Uint8Array(b));
+
+/**
+ * Ink extents of `text` in em, placed the way pdf-lib places it: each glyph
+ * advanced by its raw advance width. (fontkit's `layout().bbox` would also
+ * apply GPOS kerning, which never reaches the PDF, so it drifts off-centre
+ * for a script face like Great Vibes.)
+ */
+function measureInk(font: ReturnType<typeof fontkit.create>, text: string): NameMetrics {
+  const upm = font.unitsPerEm;
+  let x = 0;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const glyph of font.layout(text, NAME_FEATURES).glyphs) {
+    const b = glyph.bbox;
+    if (Number.isFinite(b.minX)) minX = Math.min(minX, x + b.minX);
+    if (Number.isFinite(b.maxX)) maxX = Math.max(maxX, x + b.maxX);
+    if (Number.isFinite(b.maxY)) maxY = Math.max(maxY, b.maxY);
+    x += glyph.advanceWidth;
+  }
+  // Whitespace-only input has no ink: fall back to the advance box.
+  if (!Number.isFinite(minX) || !Number.isFinite(maxX)) [minX, maxX] = [0, x];
+  if (!Number.isFinite(maxY)) maxY = font.ascent;
+  return { inkMinXEm: minX / upm, inkMaxXEm: maxX / upm, inkMaxYEm: maxY / upm };
 }
 
 /**
@@ -20,113 +70,72 @@ async function fetchFont(): Promise<ArrayBuffer> {
 }
 
 /**
- * Generates a certificate PDF client-side using pdf-lib.
+ * Builds the certificate PDF: the template as a full-page image, sized to the
+ * template's own aspect ratio so the artwork is never stretched, with the
+ * participant's name fitted onto the underline (see lib/certificateLayout.ts).
  *
- * Strategy:
- * 1. Fetch the PNG template and embed it as a full-page image.
- * 2. Load Great Vibes font via fontkit.
- * 3. Draw the participant's name in the blank area of the certificate
- *    (between "THIS IS TO CERTIFY THAT" and the body paragraph).
- * 4. Trigger browser download of the PDF.
- *
- * The template is landscape A4: 1263 × 893 px (PNG resolution ~150dpi)
- * PDF points: A4 landscape = 841.89 × 595.28 pt
+ * Pure (no DOM, no fetch) so it can run in Node for previews and tests.
  */
-export async function generateAndDownloadCertificate({
-  name,
-  templateUrl,
-}: GenerateCertificateOptions): Promise<void> {
-  // 1. Fetch the certificate template image from Supabase (with cache buster)
-  const fetchUrl = templateUrl.includes('?') ? `${templateUrl}&_cb=${Date.now()}` : `${templateUrl}?_cb=${Date.now()}`;
-  const templateRes = await fetch(fetchUrl);
-  if (!templateRes.ok) {
-    throw new Error('Failed to load certificate template from Supabase Storage. Please try again.');
-  }
-  const templateBytes = await templateRes.arrayBuffer();
-
-  // 2. Create PDF document
+export async function buildCertificatePdf({ name, templateBytes, fontBytes }: BuildCertificateOptions): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
 
-  // A4 Landscape dimensions in points
-  const pageWidth = 841.89;
-  const pageHeight = 595.28;
-
-  const page = pdfDoc.addPage([pageWidth, pageHeight]);
-
-  // 3. Detect PNG vs JPEG/JPG and embed template image
-  const header = new Uint8Array(templateBytes.slice(0, 4));
-  const isPng = header[0] === 0x89 && header[1] === 0x50 && header[2] === 0x4e && header[3] === 0x47;
+  // 1. Detect PNG vs JPEG and embed the template image
+  const template = toBytes(templateBytes);
+  const isPng = template[0] === 0x89 && template[1] === 0x50 && template[2] === 0x4e && template[3] === 0x47;
 
   let templateImage;
   try {
-    templateImage = isPng
-      ? await pdfDoc.embedPng(templateBytes)
-      : await pdfDoc.embedJpg(templateBytes);
-  } catch (embedErr) {
+    templateImage = isPng ? await pdfDoc.embedPng(template) : await pdfDoc.embedJpg(template);
+  } catch {
     // Fallback attempt opposite format if header check failed
     try {
-      templateImage = isPng
-        ? await pdfDoc.embedJpg(templateBytes)
-        : await pdfDoc.embedPng(templateBytes);
+      templateImage = isPng ? await pdfDoc.embedJpg(template) : await pdfDoc.embedPng(template);
     } catch {
       throw new Error('Failed to parse certificate template image. Please ensure the template is a valid PNG or JPG file.');
     }
   }
 
-  page.drawImage(templateImage, {
-    x: 0,
-    y: 0,
-    width: pageWidth,
-    height: pageHeight,
-  });
+  // 2. Page takes the template's aspect ratio (1532 × 1343 → 841.89 × 738.03 pt)
+  const { width: imgW, height: imgH } = templateImage.scale(1);
+  const pageWidth = PAGE_WIDTH;
+  const pageHeight = (pageWidth * imgH) / imgW;
+  const page = pdfDoc.addPage([pageWidth, pageHeight]);
+  page.drawImage(templateImage, { x: 0, y: 0, width: pageWidth, height: pageHeight });
 
-  // 4. Load Great Vibes font
-  const fontBytes = await fetchFont();
-  const greatVibesFont = await pdfDoc.embedFont(fontBytes);
+  // 3. Embed the name font and measure this name's real glyph extents
+  const font = await pdfDoc.embedFont(fontBytes, { features: NAME_FEATURES });
+  const metricsFont = fontkit.create(toBytes(fontBytes));
+  const { size, x, y } = layoutName(measureInk(metricsFont, name), pageWidth, pageHeight);
 
-  // 5. Calculate name placement
-  // New certificate layout (certi_latex.pdf / Advanced LaTeX Workshop):
-  // - "This is to certify that" baseline  ≈ 406.5 pt  (ratio 0.682)
-  // - Blank gap top (text bottom)          ≈ 393 pt   (ratio 0.660)
-  // - Horizontal name-underline            ≈ 328.4 pt (ratio 0.552)
-  // - "has successfully participated..."   ≈ 262.9 pt (ratio 0.441)
-  //
-  // Name baseline target: center of blank gap above the underline
-  //   center = (393 + 328.4) / 2 ≈ 360.7 pt  → ratio ≈ 0.606
-  //   At 40 pt Great Vibes, ascender ~32 pt above baseline (fits below 393)
-  //   and descender ~12 pt below baseline stays above underline (328.4).
-  let fontSize = 40;
-  const maxAllowedWidth = pageWidth * 0.48; // ~404 pt — stays within the underline
-  let nameWidth = greatVibesFont.widthOfTextAtSize(name, fontSize);
+  // 4. Draw the name, ink-centred on the underline
+  page.drawText(name, { x, y, size, font, color: NAME_COLOR });
 
-  // Auto-shrink font size if the name is unusually long
-  while (nameWidth > maxAllowedWidth && fontSize > 20) {
-    fontSize -= 2;
-    nameWidth = greatVibesFont.widthOfTextAtSize(name, fontSize);
+  return pdfDoc.save();
+}
+
+/**
+ * Generates the certificate PDF client-side and triggers a browser download.
+ */
+export async function generateAndDownloadCertificate({
+  name,
+  templateUrl,
+}: GenerateCertificateOptions): Promise<void> {
+  // Fetch the certificate template image from Supabase (with cache buster)
+  const fetchUrl = templateUrl.includes('?') ? `${templateUrl}&_cb=${Date.now()}` : `${templateUrl}?_cb=${Date.now()}`;
+  const templateRes = await fetch(fetchUrl);
+  if (!templateRes.ok) {
+    throw new Error('Failed to load certificate template from Supabase Storage. Please try again.');
   }
+  const [templateBytes, fontBytes] = await Promise.all([templateRes.arrayBuffer(), fetchFont()]);
 
-  const x = (pageWidth - nameWidth) / 2;
-  const y = pageHeight * 0.582; // Dropped lower toward the name underline (~346 pt)
+  const pdfBytes = await buildCertificatePdf({ name, templateBytes, fontBytes });
 
-  // 6. Draw name in deep navy blue (matching cert color scheme — #11254D)
-  page.drawText(name, {
-    x,
-    y,
-    font: greatVibesFont,
-    size: fontSize,
-    color: rgb(0.067, 0.145, 0.427), // #11254D — deep navy blue
-  });
-
-  // 7. Serialize to PDF bytes
-  const pdfBytes = await pdfDoc.save();
-
-  // 8. Trigger download
   const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `Advanced-LaTeX-Workshop-Certificate-${name.replace(/\s+/g, '-')}.pdf`;
+  link.download = `Hypervision-LaunchPad-Certificate-${name.replace(/\s+/g, '-')}.pdf`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

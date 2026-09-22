@@ -321,6 +321,10 @@ Click **Deploy**. Vercel will build your static pages and serverless API functio
 ### Q3: In Supabase SQL Editor, running the schema gives `Success. No rows returned`
 > **Cause**: This is the expected, correct response in PostgreSQL for DDL statements (`CREATE TABLE`, `CREATE POLICY`, etc.). It means all tables were created with 0 errors!
 
+### Q4: Admin console shows `Failed to add participant. permission denied for table participants` (HTTP 500)
+> **Cause**: PostgreSQL error `42501` — the `service_role` role has no privileges on `public.participants` / `download_logs` / `settings`. Supabase grants these by default, but they are missing if the defaults were revoked (e.g. a "lock down public schema" snippet) or the tables were created by a different role. The API key is fine; RLS is not involved (`service_role` bypasses it).  
+> **Fix**: Open **Supabase Dashboard &rarr; SQL Editor**, paste the contents of [`supabase-fix-grants.sql`](supabase-fix-grants.sql), and run it. The file also contains read-only queries to verify the grants took effect. If the Messages panel prints `WARNING: no privileges were granted`, follow the ownership note inside the file and re-run.
+
 ---
 
 ## 📞 Contact & Support

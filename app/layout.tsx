@@ -1,13 +1,15 @@
 import type { Metadata } from 'next';
-import { Inter, Great_Vibes } from 'next/font/google';
+import { Inter, Great_Vibes, Space_Grotesk, Chakra_Petch } from 'next/font/google';
 import './globals.css';
 
+// Inter — admin console body font
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
   display: 'swap',
 });
 
+// Great Vibes — participant name on the generated certificate
 const greatVibes = Great_Vibes({
   weight: '400',
   subsets: ['latin'],
@@ -15,22 +17,31 @@ const greatVibes = Great_Vibes({
   display: 'swap',
 });
 
+// Space Grotesk + Chakra Petch — Hypervision brand fonts (public portal)
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  variable: '--font-space-grotesk',
+  display: 'swap',
+});
+
+const chakraPetch = Chakra_Petch({
+  weight: ['500', '600', '700'],
+  subsets: ['latin'],
+  variable: '--font-chakra-petch',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
-  title: 'Workshop on Advanced LaTeX — Certificate Portal | UPES',
+  title: 'Launchpad Workshop · Hypervision',
   description:
-    'Download your Certificate of Participation for the Workshop on Advanced LaTeX for Research Writing and Publication — Dr. S. J. Chopra Centre for Learning, UPES.',
-  keywords: [
-    'LaTeX',
-    'Workshop',
-    'UPES',
-    'Research Writing',
-    'Publication',
-    'Certificate',
-    'Dr. S. J. Chopra Centre for Learning',
-  ],
+    'Download your Certificate of Participation for the Hypervision Launchpad Workshop — UPES Hypervision.',
+  keywords: ['Hypervision', 'Launchpad Workshop', 'UPES', 'Certificate', 'Workshop'],
+  icons: {
+    icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
+  },
   openGraph: {
-    title: 'Workshop on Advanced LaTeX — Certificate Portal | UPES',
-    description: 'Download your Certificate of Participation.',
+    title: 'Launchpad Workshop · Hypervision',
+    description: 'Download your Certificate of Participation for the Hypervision Launchpad Workshop.',
     type: 'website',
   },
 };
@@ -41,7 +52,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${greatVibes.variable}`}>
+    <html
+      lang="en"
+      className={`${inter.variable} ${greatVibes.variable} ${spaceGrotesk.variable} ${chakraPetch.variable}`}
+    >
       <body className="antialiased">{children}</body>
     </html>
   );
