@@ -2,7 +2,7 @@
 
 > **Dr. S. J. Chopra Centre for Learning · UPES**  
 > *Workshop on Advanced LaTeX for Research Writing and Publication*  
-> *“Write Better. Publish Smarter. Impact Greater.”*
+> *“Write Bettr. Publish Smarter. Impact Greater.”*
 
 [![Next.js](https://img.shields.io/badge/Next.js-14%20(App%20Router)-black?style=flat&logo=next.js)](https://nextjs.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Database%20%26%20Storage-3ECF8E?style=flat&logo=supabase)](https://supabase.com/)
